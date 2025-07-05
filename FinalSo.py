@@ -170,15 +170,18 @@ def ejecutar_simulacion():
         actualizar_tabla_pq_queue() # Actualizar la tabla de la cola PQ
 
         # 2. Preempción por llegada de proceso de mayor prioridad (si hay un proceso ejecutándose)
+        # Esta lógica verifica si un proceso actualmente en la CPU debe ser preempted
+        # porque un proceso de mayor prioridad ha llegado a una cola de mayor prioridad.
         if proceso_actual_en_cpu:
             current_queue_priority = QUEUE_PRIORITIES[proceso_actual_en_cpu.queue_type]
             # Verificar si alguna cola de mayor prioridad tiene procesos listos
+            # Condición 1: Hay procesos en RR y el proceso actual no es RR (RR es la más alta prioridad)
+            # Condición 2: Hay procesos en FCFS y el proceso actual no es FCFS ni RR (FCFS es media prioridad)
+            # Condición 3: Hay procesos en PQ y el proceso actual no es PQ, RR o FCFS,
+            #              O si es de PQ y llega uno de mayor prioridad a PQ (preempción dentro de PQ por prioridad)
             if (not cola_rr.esta_vacia() and current_queue_priority > QUEUE_PRIORITIES["RR"]) or \
                (cola_fcfs and current_queue_priority > QUEUE_PRIORITIES["FCFS"]) or \
-               (cola_pq and current_queue_priority > QUEUE_PRIORITIES["PQ"] and cola_pq[0].priority < proceso_actual_en_cpu.priority): # Preempción dentro de PQ si llega uno de mayor prioridad
-                
-                # Si el proceso actual no es de la cola RR y hay un proceso en RR, o si no es de FCFS y hay en FCFS
-                # O si es de PQ y llega uno de mayor prioridad a PQ
+               (cola_pq and current_queue_priority > QUEUE_PRIORITIES["PQ"] and cola_pq[0].priority < proceso_actual_en_cpu.priority):
                 
                 # Preempt the currently running process
                 p = proceso_actual_en_cpu
@@ -189,10 +192,10 @@ def ejecutar_simulacion():
                 if p.queue_type == "RR":
                     cola_rr.encolar_proceso(p)
                 elif p.queue_type == "FCFS":
-                    cola_fcfs.appendleft(p) # Re-insertar al frente para mantener el orden FCFS para él
+                    cola_fcfs.appendleft(p) # Para FCFS, se re-inserta al frente para mantener el orden
                 elif p.queue_type == "PQ":
                     cola_pq.append(p)
-                    cola_pq.sort(key=lambda proc: proc.priority) # Re-ordenar la cola PQ
+                    cola_pq.sort(key=lambda proc: proc.priority) # Re-ordenar la cola PQ para mantener la prioridad
                 
                 proceso_actual_en_cpu = None # La CPU queda libre para el siguiente ciclo
                 actualizar_vista_cola_procesos()
@@ -243,6 +246,8 @@ def ejecutar_simulacion():
                     break
 
                 # Verificar preempción por llegada de mayor prioridad *durante* la ejecución del slice
+                # Esta es una verificación continua para preempción si un proceso de mayor prioridad
+                # llega mientras otro de menor prioridad está ejecutándose.
                 with procesos_por_llegar_lock:
                     for p_arrival_check in list(procesos_por_llegar):
                         if p_arrival_check.t_llegada <= cpu_tiempo_actual:
@@ -259,8 +264,6 @@ def ejecutar_simulacion():
                     procesos_por_llegar.sort(key=lambda p: p.t_llegada) # Reordenar por tiempo de llegada
 
                 current_queue_priority = QUEUE_PRIORITIES[p.queue_type]
-                # Si el proceso actual no es de la cola RR y hay un proceso en RR, o si no es de FCFS y hay en FCFS
-                # O si es de PQ y llega uno de mayor prioridad a PQ
                 if (not cola_rr.esta_vacia() and current_queue_priority > QUEUE_PRIORITIES["RR"]) or \
                    (cola_fcfs and current_queue_priority > QUEUE_PRIORITIES["FCFS"]) or \
                    (cola_pq and current_queue_priority > QUEUE_PRIORITIES["PQ"] and cola_pq[0].priority < p.priority):
@@ -298,7 +301,7 @@ def ejecutar_simulacion():
                     if p.queue_type == "RR":
                         cola_rr.encolar_proceso(p)
                     elif p.queue_type == "FCFS":
-                        cola_fcfs.appendleft(p)
+                        cola_fcfs.appendleft(p) # Se re-inserta al frente
                     elif p.queue_type == "PQ":
                         cola_pq.append(p)
                         cola_pq.sort(key=lambda proc: proc.priority)
@@ -692,8 +695,10 @@ def actualizar_tabla_pq_queue():
         ))
 
 def agregar_proceso():
-    """Añade un nuevo proceso al sistema desde la UI, asignándolo aleatoriamente a una cola."""
+    """Añade un nuevo proceso al sistema desde la UI, asignándolo aleatoriamente o por selección a una cola."""
     pid, at_str, bt_str = entry_pid.get().strip(), entry_at.get().strip(), entry_bt.get().strip()
+    queue_type_selection = combo_queue_type.get() # Obtener la selección del Combobox
+
     if not pid or not at_str or not bt_str:
         messagebox.showerror("Error de Entrada", "Todos los campos (ID, Llegada, Ráfaga) son obligatorios.")
         return
@@ -709,9 +714,14 @@ def agregar_proceso():
         messagebox.showerror("Error de Entrada", f"El ID de proceso '{pid}' ya existe. Por favor, use uno diferente.")
         return
 
-    # Asignar aleatoriamente a una cola y establecer prioridad (si es PQ)
-    queue_choices = ["RR", "FCFS", "PQ"]
-    assigned_queue_type = random.choice(queue_choices)
+    # Asignar la cola basada en la selección del usuario o aleatoriamente
+    assigned_queue_type = None
+    if queue_type_selection == "Aleatorio":
+        queue_choices = ["RR", "FCFS", "PQ"]
+        assigned_queue_type = random.choice(queue_choices)
+    else:
+        assigned_queue_type = queue_type_selection
+
     assigned_priority = None
     if assigned_queue_type == "PQ":
         assigned_priority = random.randint(1, 10) # Ejemplo: prioridad aleatoria del 1 al 10 (1 es la más alta para PQ)
@@ -1003,14 +1013,20 @@ tk.Label(input_frame, text="Ráfaga (BT):", bg="white").grid(row=0, column=4, pa
 entry_bt = tk.Entry(input_frame, width=10, relief="solid", bd=1)
 entry_bt.grid(row=0, column=5, padx=5, pady=5)
 
-tk.Label(input_frame, text="Quantum:", bg="white").grid(row=0, column=6, padx=5, pady=5, sticky="w")
+# Nueva fila para Tipo de Cola y Quantum
+tk.Label(input_frame, text="Tipo de Cola:", bg="white").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+queue_type_options = ["Aleatorio", "RR", "FCFS", "PQ"]
+combo_queue_type = ttk.Combobox(input_frame, values=queue_type_options, state="readonly", width=10)
+combo_queue_type.set("Aleatorio") # Valor predeterminado
+combo_queue_type.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+
+tk.Label(input_frame, text="Quantum:", bg="white").grid(row=1, column=2, padx=5, pady=5, sticky="w")
 entry_quantum = tk.Entry(input_frame, width=10, relief="solid", bd=1)
 entry_quantum.insert(0, "2.0") # Valor predeterminado del quantum
-entry_quantum.grid(row=0, column=7, padx=5, pady=5)
+entry_quantum.grid(row=1, column=3, padx=5, pady=5)
 
 btn_agregar = tk.Button(input_frame, text="Añadir Proceso", command=agregar_proceso, bg="#6cbafa", fg="white", font=("Arial", 10, "bold"), relief="raised", bd=2)
-btn_agregar.grid(row=0, column=8, padx=10, pady=5)
-
+btn_agregar.grid(row=1, column=4, columnspan=2, padx=10, pady=5) # columnspan para que ocupe más espacio
 
 # Controles de simulación
 control_frame = tk.LabelFrame(top_frame, text="Controles de Simulación", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove")
