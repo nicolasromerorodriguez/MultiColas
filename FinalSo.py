@@ -957,17 +957,39 @@ style.configure("Treeview.Heading", font=("Arial", 10, "bold"), background="#d0d
 style.configure("Treeview", font=("Arial", 9), rowheight=25, background="white", fieldbackground="white", foreground="black")
 style.map("Treeview", background=[('selected', '#a0a0ff')]) # Color de selección
 
-# Frame principal
-main_frame = tk.Frame(root, bg="#f0f0f0")
-main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+# Crear un Canvas principal para hacer todo el contenido scrollable
+outer_canvas = tk.Canvas(root, bg="#f0f0f0")
+outer_canvas.pack(side="left", fill="both", expand=True)
 
-# --- SECCIÓN SUPERIOR: Entrada y Controles ---
-top_frame = tk.Frame(main_frame, bg="#f0f0f0")
+# Añadir barras de desplazamiento al Canvas principal
+scrollbar_y = ttk.Scrollbar(root, orient="vertical", command=outer_canvas.yview)
+scrollbar_y.pack(side="right", fill="y")
+outer_canvas.configure(yscrollcommand=scrollbar_y.set)
+
+scrollbar_x = ttk.Scrollbar(root, orient="horizontal", command=outer_canvas.xview)
+scrollbar_x.pack(side="bottom", fill="x")
+outer_canvas.configure(xscrollcommand=scrollbar_x.set)
+
+# Crear un Frame dentro del Canvas para contener todo el contenido de la aplicación
+scrollable_frame = tk.Frame(outer_canvas, bg="#f0f0f0")
+outer_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+# Configurar el Canvas para que su región de desplazamiento se ajuste al tamaño del frame interno
+def _on_frame_configure(event):
+    outer_canvas.configure(scrollregion=outer_canvas.bbox("all"))
+scrollable_frame.bind("<Configure>", _on_frame_configure)
+
+# Asegurarse de que el frame interno se expanda horizontalmente con el canvas
+outer_canvas.bind("<Configure>", lambda e: outer_canvas.itemconfig(outer_canvas.winfo_children()[0], width=e.width))
+
+
+# --- SECCIÓN SUPERIOR: Entrada y Controles (ahora dentro de scrollable_frame) ---
+top_frame = tk.Frame(scrollable_frame, bg="#f0f0f0")
 top_frame.pack(fill=tk.X, pady=(0, 10))
 
 # Entrada de procesos
 input_frame = tk.LabelFrame(top_frame, text="Añadir Proceso", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove")
-input_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5), ipady=5) # ipady añade padding interno
+input_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5), ipady=5)
 
 tk.Label(input_frame, text="ID:", bg="white").grid(row=0, column=0, padx=5, pady=5, sticky="w")
 entry_pid = tk.Entry(input_frame, width=10, relief="solid", bd=1)
@@ -1012,14 +1034,14 @@ btn_reiniciar = tk.Button(control_frame, text="Reiniciar", command=reiniciar_sim
                           bg="#FF5733", fg="white", font=("Arial", 10, "bold"), relief="raised", bd=2, width=8)
 btn_reiniciar.pack(side=tk.LEFT, padx=5, pady=5)
 
-# --- SECCIÓN MEDIA: Cola y Gantt ---
-middle_frame = tk.Frame(main_frame, bg="#f0f0f0")
+# --- SECCIÓN MEDIA: Cola y Gantt (ahora dentro de scrollable_frame) ---
+middle_frame = tk.Frame(scrollable_frame, bg="#f0f0f0")
 middle_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
 # Cola de procesos
-cola_frame = tk.LabelFrame(middle_frame, text="Estado de Procesos", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove", width=280) # Ancho aumentado
+cola_frame = tk.LabelFrame(middle_frame, text="Estado de Procesos", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove", width=280)
 cola_frame.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0, 5), expand=False)
-cola_frame.pack_propagate(False) # Evita que el LabelFrame se encoja para ajustarse a su contenido
+cola_frame.pack_propagate(False)
 
 frame_cola_listos = tk.Frame(cola_frame, bg="white")
 frame_cola_listos.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -1028,11 +1050,11 @@ frame_cola_listos.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 gantt_frame = tk.LabelFrame(middle_frame, text="Gráfico de Gantt", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove")
 gantt_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
 
-canvas_gantt = tk.Canvas(gantt_frame, bg="white", height=150, bd=0, highlightthickness=0) # Altura aumentada
+canvas_gantt = tk.Canvas(gantt_frame, bg="white", height=150, bd=0, highlightthickness=0)
 canvas_gantt.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-# --- SECCIÓN INFERIOR: Resultados y Consola ---
-bottom_frame = tk.Frame(main_frame, bg="#f0f0f0")
+# --- SECCIÓN INFERIOR: Resultados y Consola (ahora dentro de scrollable_frame) ---
+bottom_frame = tk.Frame(scrollable_frame, bg="#f0f0f0")
 bottom_frame.pack(fill=tk.BOTH, expand=True)
 
 # Resultados
@@ -1044,7 +1066,7 @@ tree_resultados = ttk.Treeview(results_frame, columns=("ID", "AT", "BT", "Tipo C
 tree_resultados.heading("ID", text="Proceso")
 tree_resultados.heading("AT", text="T llegada")
 tree_resultados.heading("BT", text="Ráfaga")
-tree_resultados.heading("Tipo Cola", text="Tipo Cola") # Nueva columna
+tree_resultados.heading("Tipo Cola", text="Tipo Cola")
 tree_resultados.heading("Inicio", text="T Comienzo")
 tree_resultados.heading("Fin", text="T final")
 tree_resultados.heading("Duración", text="T retorno")
@@ -1060,7 +1082,7 @@ label_promedios = tk.Label(results_frame, text="Promedio TAT (Proceso Completo):
 label_promedios.pack(pady=5)
 
 
-# --- NUEVAS TABLAS PARA CADA COLA ---
+# --- NUEVAS TABLAS PARA CADA COLA (ahora dentro de scrollable_frame) ---
 queue_tables_frame = tk.LabelFrame(bottom_frame, text="Contenido Actual de Colas", bg="#f0f0f0", font=("Arial", 11, "bold"), bd=2, relief="groove")
 queue_tables_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
 
@@ -1104,7 +1126,7 @@ for col in ("ID", "AT", "BT", "Prioridad"):
 tree_pq_queue.pack(fill=tk.BOTH, expand=True)
 
 
-# Consola
+# Consola (ahora dentro de scrollable_frame)
 console_frame = tk.LabelFrame(bottom_frame, text="Consola del Simulador", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove")
 console_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
 
