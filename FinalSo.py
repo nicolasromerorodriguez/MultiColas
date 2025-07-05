@@ -165,6 +165,9 @@ def ejecutar_simulacion():
             procesos_por_llegar.sort(key=lambda p: p.t_llegada) # Mantener la lista ordenada por tiempo de llegada
 
         actualizar_vista_cola_procesos() # Actualiza la UI de las colas
+        actualizar_tabla_rr_queue() # Actualizar la tabla de la cola RR
+        actualizar_tabla_fcfs_queue() # Actualizar la tabla de la cola FCFS
+        actualizar_tabla_pq_queue() # Actualizar la tabla de la cola PQ
 
         # 2. Preempción por llegada de proceso de mayor prioridad (si hay un proceso ejecutándose)
         if proceso_actual_en_cpu:
@@ -193,6 +196,9 @@ def ejecutar_simulacion():
                 
                 proceso_actual_en_cpu = None # La CPU queda libre para el siguiente ciclo
                 actualizar_vista_cola_procesos()
+                actualizar_tabla_rr_queue()
+                actualizar_tabla_fcfs_queue()
+                actualizar_tabla_pq_queue()
                 continue # Volver a la siguiente iteración principal para seleccionar el proceso de mayor prioridad
 
         # 3. Seleccionar el siguiente proceso a ejecutar según la prioridad de las colas
@@ -283,6 +289,9 @@ def ejecutar_simulacion():
                     fragmentos_ejecucion.append(fragment_info)
                     dibujar_proceso_en_gantt(fragment_info, COLORES_PROCESOS[idx_color % len(COLORES_PROCESOS)])
                     actualizar_tabla_resultados(fragmentos_ejecucion)
+                    actualizar_tabla_rr_queue()
+                    actualizar_tabla_fcfs_queue()
+                    actualizar_tabla_pq_queue()
 
                     # Re-encolar el proceso preempted
                     p.t_llegada = cpu_tiempo_actual # Su "nueva" llegada es el momento actual de la CPU
@@ -342,6 +351,9 @@ def ejecutar_simulacion():
                 fragmentos_ejecucion.append(fragment_info)
                 dibujar_proceso_en_gantt(fragment_info, COLORES_PROCESOS[idx_color % len(COLORES_PROCESOS)])
                 actualizar_tabla_resultados(fragmentos_ejecucion) # Actualizar tabla con el nuevo fragmento
+                actualizar_tabla_rr_queue()
+                actualizar_tabla_fcfs_queue()
+                actualizar_tabla_pq_queue()
 
                 if p.bt > 0:
                     # Crear una copia del proceso para poner en la cola de bloqueados
@@ -375,6 +387,9 @@ def ejecutar_simulacion():
             fragmentos_ejecucion.append(fragment_info)
             dibujar_proceso_en_gantt(fragment_info, COLORES_PROCESOS[idx_color % len(COLORES_PROCESOS)])
             actualizar_tabla_resultados(fragmentos_ejecucion) # Actualizar tabla con el nuevo fragmento
+            actualizar_tabla_rr_queue()
+            actualizar_tabla_fcfs_queue()
+            actualizar_tabla_pq_queue()
 
             if p.bt <= 1e-9: # Proceso terminado
                 p.bt = 0.0
@@ -636,6 +651,46 @@ def actualizar_tabla_resultados(fragmentos):
         label_promedios.config(text="Promedio TAT (Proceso Completo): N/A | Promedio WT (Proceso Completo): N/A")
 
 
+def actualizar_tabla_rr_queue():
+    """Actualiza la tabla que muestra los procesos en la cola Round Robin."""
+    for item in tree_rr_queue.get_children():
+        tree_rr_queue.delete(item)
+    
+    listos_rr = cola_rr.obtener_procesos_en_orden()
+    for proc in listos_rr:
+        tree_rr_queue.insert("", "end", values=(
+            proc.id,
+            proc.t_llegada,
+            f"{proc.bt:.1f}",
+            quantum_value # Mostrar el quantum actual de la simulación
+        ))
+
+def actualizar_tabla_fcfs_queue():
+    """Actualiza la tabla que muestra los procesos en la cola FCFS."""
+    for item in tree_fcfs_queue.get_children():
+        tree_fcfs_queue.delete(item)
+    
+    for proc in cola_fcfs:
+        tree_fcfs_queue.insert("", "end", values=(
+            proc.id,
+            proc.t_llegada,
+            f"{proc.bt:.1f}"
+        ))
+
+def actualizar_tabla_pq_queue():
+    """Actualiza la tabla que muestra los procesos en la cola de Prioridades."""
+    for item in tree_pq_queue.get_children():
+        tree_pq_queue.delete(item)
+    
+    # Asegurarse de que la cola PQ esté ordenada por prioridad para la visualización
+    for proc in sorted(cola_pq, key=lambda p: p.priority):
+        tree_pq_queue.insert("", "end", values=(
+            proc.id,
+            proc.t_llegada,
+            f"{proc.bt:.1f}",
+            proc.priority
+        ))
+
 def agregar_proceso():
     """Añade un nuevo proceso al sistema desde la UI, asignándolo aleatoriamente a una cola."""
     pid, at_str, bt_str = entry_pid.get().strip(), entry_at.get().strip(), entry_bt.get().strip()
@@ -672,6 +727,9 @@ def agregar_proceso():
     
     update_console(f"[Sistema] Proceso {pid} registrado para cola {assigned_queue_type} (Prioridad: {assigned_priority if assigned_priority else 'N/A'}). Esperando su tiempo de llegada ({t_llegada:.1f}).", "sistema")
     actualizar_vista_cola_procesos()
+    actualizar_tabla_rr_queue()
+    actualizar_tabla_fcfs_queue()
+    actualizar_tabla_pq_queue()
     # Limpiar campos de entrada
     entry_pid.delete(0, tk.END); entry_at.delete(0, tk.END); entry_bt.delete(0, tk.END)
     
@@ -705,6 +763,9 @@ def desbloquear_proceso():
 
     update_console(f"[Sistema] Proceso {proceso.id} ({proceso.queue_type}) DESBLOQUEADO y reencolado en t={cpu_tiempo_actual:.1f}s", "sistema_nuevo_proceso")
     actualizar_vista_cola_procesos()
+    actualizar_tabla_rr_queue()
+    actualizar_tabla_fcfs_queue()
+    actualizar_tabla_pq_queue()
 
 
 def iniciar_simulacion_hilo():
@@ -775,6 +836,9 @@ def iniciar_simulacion_hilo():
     actualizar_tabla_resultados([]) # Limpiar y actualizar la tabla de resultados (fragmentos)
     dibujar_linea_tiempo_gantt() # Redibujar línea de tiempo inicial del Gantt
     actualizar_vista_cola_procesos() # Actualizar vista de colas
+    actualizar_tabla_rr_queue() # Actualizar la tabla de la cola RR
+    actualizar_tabla_fcfs_queue() # Actualizar la tabla de la cola FCFS
+    actualizar_tabla_pq_queue() # Actualizar la tabla de la cola PQ
     label_promedios.config(text="Promedio TAT (Proceso Completo): N/A | Promedio WT (Proceso Completo): N/A")
 
 
@@ -850,6 +914,11 @@ def reiniciar_simulacion():
         tree_resultados.column(col, width=80, anchor="center")
     actualizar_tabla_resultados([]) # Limpiar y actualizar la tabla de resultados (fragmentos)
     
+    # Limpiar las nuevas tablas de cola
+    actualizar_tabla_rr_queue()
+    actualizar_tabla_fcfs_queue()
+    actualizar_tabla_pq_queue()
+
     # Limpiar la consola
     consola_text.config(state='normal')
     consola_text.delete(1.0, tk.END)
@@ -878,7 +947,7 @@ def desactivar_controles_simulacion():
 # --- INTERFAZ GRÁFICA (UI) ---
 root = tk.Tk()
 root.title("Simulador de Planificación Multi-Cola")
-root.geometry("1100x750") # Ajustar tamaño para acomodar más información
+root.geometry("1100x950") # Ajustar tamaño para acomodar más información
 root.configure(bg="#f0f0f0") # Fondo gris claro
 
 # Estilo para Treeview (tabla de resultados)
@@ -967,7 +1036,7 @@ bottom_frame = tk.Frame(main_frame, bg="#f0f0f0")
 bottom_frame.pack(fill=tk.BOTH, expand=True)
 
 # Resultados
-results_frame = tk.LabelFrame(bottom_frame, text="Resultados", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove")
+results_frame = tk.LabelFrame(bottom_frame, text="Resultados de Ejecución", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove")
 results_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
 
 # Definir las columnas de la tabla de resultados, incluyendo "Tipo Cola"
@@ -990,6 +1059,51 @@ label_promedios = tk.Label(results_frame, text="Promedio TAT (Proceso Completo):
                             bg="white", font=("Arial", 10, "bold"), fg="#333333")
 label_promedios.pack(pady=5)
 
+
+# --- NUEVAS TABLAS PARA CADA COLA ---
+queue_tables_frame = tk.LabelFrame(bottom_frame, text="Contenido Actual de Colas", bg="#f0f0f0", font=("Arial", 11, "bold"), bd=2, relief="groove")
+queue_tables_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+
+# Frame para las tablas de cola individuales (para organizarlas horizontalmente)
+individual_queues_frame = tk.Frame(queue_tables_frame, bg="#f0f0f0")
+individual_queues_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+# Tabla para Round Robin
+rr_queue_frame = tk.LabelFrame(individual_queues_frame, text="Cola Round Robin (Prioridad 1)", bg="white", font=("Arial", 10, "bold"), bd=1, relief="solid")
+rr_queue_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+tree_rr_queue = ttk.Treeview(rr_queue_frame, columns=("ID", "AT", "BT", "Quantum"), show="headings", height=5)
+tree_rr_queue.heading("ID", text="ID")
+tree_rr_queue.heading("AT", text="Llegada")
+tree_rr_queue.heading("BT", text="Ráfaga")
+tree_rr_queue.heading("Quantum", text="Quantum")
+for col in ("ID", "AT", "BT", "Quantum"):
+    tree_rr_queue.column(col, width=60, anchor="center")
+tree_rr_queue.pack(fill=tk.BOTH, expand=True)
+
+# Tabla para FCFS
+fcfs_queue_frame = tk.LabelFrame(individual_queues_frame, text="Cola FCFS (Prioridad 2)", bg="white", font=("Arial", 10, "bold"), bd=1, relief="solid")
+fcfs_queue_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+tree_fcfs_queue = ttk.Treeview(fcfs_queue_frame, columns=("ID", "AT", "BT"), show="headings", height=5)
+tree_fcfs_queue.heading("ID", text="ID")
+tree_fcfs_queue.heading("AT", text="Llegada")
+tree_fcfs_queue.heading("BT", text="Ráfaga")
+for col in ("ID", "AT", "BT"):
+    tree_fcfs_queue.column(col, width=60, anchor="center")
+tree_fcfs_queue.pack(fill=tk.BOTH, expand=True)
+
+# Tabla para Cola de Prioridades
+pq_queue_frame = tk.LabelFrame(individual_queues_frame, text="Cola de Prioridades (Prioridad 3)", bg="white", font=("Arial", 10, "bold"), bd=1, relief="solid")
+pq_queue_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+tree_pq_queue = ttk.Treeview(pq_queue_frame, columns=("ID", "AT", "BT", "Prioridad"), show="headings", height=5)
+tree_pq_queue.heading("ID", text="ID")
+tree_pq_queue.heading("AT", text="Llegada")
+tree_pq_queue.heading("BT", text="Ráfaga")
+tree_pq_queue.heading("Prioridad", text="Prioridad")
+for col in ("ID", "AT", "BT", "Prioridad"):
+    tree_pq_queue.column(col, width=60, anchor="center")
+tree_pq_queue.pack(fill=tk.BOTH, expand=True)
+
+
 # Consola
 console_frame = tk.LabelFrame(bottom_frame, text="Consola del Simulador", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove")
 console_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
@@ -1010,5 +1124,8 @@ consola_text.tag_config("normal", foreground="#D3D3D3") # Gris claro
 # Inicialización de la UI
 actualizar_vista_cola_procesos()
 dibujar_linea_tiempo_gantt()
+actualizar_tabla_rr_queue()
+actualizar_tabla_fcfs_queue()
+actualizar_tabla_pq_queue()
 
 root.mainloop()
