@@ -386,7 +386,7 @@ def ejecutar_simulacion():
                 proceso_actual_en_cpu = None
                 continue # Ir a la siguiente iteración principal del bucle
 
-            # Si el slice se completó de forma natural (no bloqueado, no detenido, no preempted por mayor prioridad)
+            # Si el slice se completó de forma natural (no bloqueado, no detenido, no preemted por mayor prioridad)
             fragmentos_ejecucion.append(fragment_info)
             dibujar_proceso_en_gantt(fragment_info, COLORES_PROCESOS[idx_color % len(COLORES_PROCESOS)])
             actualizar_tabla_resultados(fragmentos_ejecucion) # Actualizar tabla con el nuevo fragmento
@@ -724,8 +724,12 @@ def agregar_proceso():
 
     assigned_priority = None
     if assigned_queue_type == "PQ":
-        assigned_priority = random.randint(1, 10) # Ejemplo: prioridad aleatoria del 1 al 10 (1 es la más alta para PQ)
-
+    #assigned_priority = random.randint(1, 10) Ejemplo: prioridad aleatoria del 1 al 10 (1 es la más alta para PQ)
+        try:
+            assigned_priority = int(entry_priority_pq.get())
+        except ValueError:
+            messagebox.showerror("Error de Entrada", "Debe ingresar una prioridad válida para PQ.")
+            return
     nuevo_proceso = Proceso(id_proceso=pid, tiempo_llegada=t_llegada, tiempo_rafaga=bt,
                             priority=assigned_priority, queue_type=assigned_queue_type)
     
@@ -940,9 +944,9 @@ def reiniciar_simulacion():
     btn_iniciar.config(state=tk.DISABLED)
     btn_pausar_reanudar.config(state=tk.DISABLED, text="Pausar")
     btn_reiniciar.config(state=tk.NORMAL) # Siempre accesible para reiniciar
-    btn_bloquear.config(state=tk.DISABLED)
-    btn_desbloquear.config(state=tk.DISABLED)
     entry_quantum.config(state=tk.NORMAL)
+    #btn_bloquear.config(state=tk.DISABLED)
+    #btn_desbloquear.config(state=tk.DISABLED)
 
     update_console("Simulador reiniciado. Agregue nuevos procesos para comenzar.", "sistema_advertencia")
 
@@ -951,8 +955,8 @@ def desactivar_controles_simulacion():
     global simulacion_activa
     simulacion_activa = False
     btn_pausar_reanudar.config(state=tk.DISABLED, text="Pausar")
-    btn_bloquear.config(state=tk.DISABLED)
-    btn_desbloquear.config(state=tk.DISABLED)
+"""    btn_bloquear.config(state=tk.DISABLED)
+    btn_desbloquear.config(state=tk.DISABLED)"""
 
 # --- INTERFAZ GRÁFICA (UI) ---
 root = tk.Tk()
@@ -1013,6 +1017,11 @@ tk.Label(input_frame, text="Ráfaga (BT):", bg="white").grid(row=0, column=4, pa
 entry_bt = tk.Entry(input_frame, width=10, relief="solid", bd=1)
 entry_bt.grid(row=0, column=5, padx=5, pady=5)
 
+tk.Label(input_frame, text="Prioridad PQ:", bg="white").grid(row=0, column=6, padx=5, pady=5, sticky="w")
+entry_priority_pq = tk.Entry(input_frame, width=10, relief="solid", bd=1)
+entry_priority_pq.grid(row=0, column=7, padx=5, pady=5)
+ # Deshabilitado por defecto
+
 # Nueva fila para Tipo de Cola y Quantum
 tk.Label(input_frame, text="Tipo de Cola:", bg="white").grid(row=1, column=0, padx=5, pady=5, sticky="w")
 queue_type_options = ["Aleatorio", "RR", "FCFS", "PQ"]
@@ -1024,6 +1033,16 @@ tk.Label(input_frame, text="Quantum:", bg="white").grid(row=1, column=2, padx=5,
 entry_quantum = tk.Entry(input_frame, width=10, relief="solid", bd=1)
 entry_quantum.insert(0, "2.0") # Valor predeterminado del quantum
 entry_quantum.grid(row=1, column=3, padx=5, pady=5)
+
+
+def on_queue_type_change(event):
+    if combo_queue_type.get() == "PQ":
+        entry_priority_pq.config(state=tk.NORMAL)
+    else:
+        entry_priority_pq.delete(0, tk.END)
+        entry_priority_pq.config(state=tk.DISABLED)
+
+combo_queue_type.bind("<<ComboboxSelected>>", on_queue_type_change)
 
 btn_agregar = tk.Button(input_frame, text="Añadir Proceso", command=agregar_proceso, bg="#6cbafa", fg="white", font=("Arial", 10, "bold"), relief="raised", bd=2)
 btn_agregar.grid(row=1, column=4, columnspan=2, padx=10, pady=5) # columnspan para que ocupe más espacio
