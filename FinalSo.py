@@ -111,6 +111,7 @@ bloqueo_solicitado = False # Bandera para indicar que se ha solicitado un bloque
 proceso_actual_en_cpu = None # Referencia al proceso que actualmente ejecuta la CPU
 quantum_value = None # Valor del quantum para Round Robin
 aging_time_x = None # Valor del tiempo de envejecimiento
+VISUAL_DELAY = 0.2 # <--- NUEVO: Delay para visualización del semáforo en verde
 
 # Niveles de prioridad de las colas (menor número = mayor prioridad)
 QUEUE_PRIORITIES = {
@@ -129,6 +130,15 @@ COLORES_PROCESOS = ["#FF6347", "#6A5ACD", "#3CB371", "#FFD700", "#BA55D3", "#468
 random.shuffle(COLORES_PROCESOS) # Aleatorizar colores
 
 # --- FUNCIONES DE LÓGICA DE SIMULACIÓN ---
+
+def liberar_cpu_con_delay(): # <--- NUEVA FUNCION
+    """Libera la CPU, actualiza el semáforo a verde y añade un pequeño delay para visualización."""
+    global proceso_actual_en_cpu
+    proceso_actual_en_cpu = None
+    actualizar_semaforo_cpu(False)
+    # Forzar actualización de la UI para mostrar el cambio antes de la pausa
+    root.update_idletasks()
+    time.sleep(VISUAL_DELAY)
 
 def check_aging():
     """
@@ -243,8 +253,7 @@ def ejecutar_simulacion():
                     cola_pq.append(p)
                     cola_pq.sort(key=lambda proc: proc.priority)
                 
-                proceso_actual_en_cpu = None
-                actualizar_semaforo_cpu(False) # <--- NUEVO
+                liberar_cpu_con_delay() # <--- MODIFICADO
                 actualizar_vista_cola_procesos()
                 actualizar_tabla_rr_queue()
                 actualizar_tabla_fcfs_queue()
@@ -264,7 +273,7 @@ def ejecutar_simulacion():
         if proceso_a_ejecutar:
             p = proceso_a_ejecutar
             proceso_actual_en_cpu = p
-            actualizar_semaforo_cpu(True) # <--- NUEVO
+            actualizar_semaforo_cpu(True)
 
             t_espera = max(0.0, cpu_tiempo_actual - p.t_llegada)
 
@@ -338,8 +347,7 @@ def ejecutar_simulacion():
                         cola_pq.append(p)
                         cola_pq.sort(key=lambda proc: proc.priority)
                     
-                    proceso_actual_en_cpu = None
-                    actualizar_semaforo_cpu(False) # <--- NUEVO
+                    liberar_cpu_con_delay() # <--- MODIFICADO
                     actualizar_vista_cola_procesos()
                     break
 
@@ -403,8 +411,7 @@ def ejecutar_simulacion():
                     update_console(f"[CPU] {p.id} ({p.queue_type}) TERMINÓ en t={t_final:.1f}", "terminado")
                 
                 bloqueo_solicitado = False
-                proceso_actual_en_cpu = None
-                actualizar_semaforo_cpu(False) # <--- NUEVO
+                liberar_cpu_con_delay() # <--- MODIFICADO
                 continue
 
             fragmentos_ejecucion.append(fragment_info)
@@ -428,8 +435,7 @@ def ejecutar_simulacion():
                 })
                 update_console(f"[CPU] {p.id} ({p.queue_type}) TERMINÓ en t={t_final:.1f}", "terminado")
                 idx_color += 1
-                proceso_actual_en_cpu = None
-                actualizar_semaforo_cpu(False) # <--- NUEVO
+                liberar_cpu_con_delay() # <--- MODIFICADO
             else:
                 update_console(f"[CPU] {p.id} ({p.queue_type}) fue PREEMPTADO y reencolado (restan {p.bt:.1f}u).", "sistema_advertencia")
                 p.t_llegada = cpu_tiempo_actual
@@ -441,12 +447,11 @@ def ejecutar_simulacion():
                 elif p.queue_type == "PQ":
                     cola_pq.append(p)
                     cola_pq.sort(key=lambda proc: proc.priority)
-                proceso_actual_en_cpu = None
-                actualizar_semaforo_cpu(False) # <--- NUEVO
+                liberar_cpu_con_delay() # <--- MODIFICADO
             
         # 4. CPU ociosa
         else:
-            actualizar_semaforo_cpu(False) # <--- NUEVO
+            actualizar_semaforo_cpu(False)
             with procesos_por_llegar_lock:
                 next_event_time = float('inf')
                 if procesos_por_llegar:
@@ -490,12 +495,12 @@ def ejecutar_simulacion():
 
 # --- FUNCIONES DE INTERFAZ GRÁFICA (UI) ---
 
-def actualizar_semaforo_cpu(ocupado): # <--- NUEVO
+def actualizar_semaforo_cpu(ocupado):
     """Actualiza el indicador visual del estado de la CPU."""
     if ocupado:
-        label_semaforo_cpu.config(text="CPU Ocupado", bg="crimson", fg="white")
+        label_semaforo_cpu.config(text=" ", bg="crimson", fg="white")
     else:
-        label_semaforo_cpu.config(text="CPU Libre", bg="limegreen", fg="white")
+        label_semaforo_cpu.config(text=" ", bg="limegreen", fg="white")
 
 
 def update_console(msg, tag="normal"):
@@ -941,7 +946,7 @@ def reiniciar_simulacion():
     entry_quantum.config(state=tk.NORMAL)
     entry_aging_time.config(state=tk.NORMAL)
     
-    actualizar_semaforo_cpu(False) # <--- NUEVO
+    actualizar_semaforo_cpu(False)
 
     update_console("Simulador reiniciado. Agregue nuevos procesos para comenzar.", "sistema_advertencia")
 
@@ -956,7 +961,7 @@ def desactivar_controles_simulacion():
 # --- INTERFAZ GRÁFICA (UI) ---
 root = tk.Tk()
 root.title("Simulador de Planificación Multi-Cola con Envejecimiento")
-root.geometry("1300x950") # <--- MODIFICADO (un poco más ancho)
+root.geometry("1300x950")
 root.configure(bg="#f0f0f0")
 
 style = ttk.Style()
@@ -1032,8 +1037,8 @@ control_frame = tk.LabelFrame(top_frame, text="Controles de Simulación", bg="wh
 control_frame.pack(side=tk.RIGHT, padx=(5, 0), ipady=5)
 
 # --- INICIO DE MODIFICACIÓN: SEMÁFORO Y CONTROLES ---
-label_semaforo_cpu = tk.Label(control_frame, text="CPU Libre", bg="limegreen", fg="white", font=("Arial", 10, "bold"), relief="solid", bd=2, width=12) # <--- NUEVO
-label_semaforo_cpu.pack(side=tk.LEFT, padx=(10, 5), pady=5) # <--- NUEVO
+label_semaforo_cpu = tk.Label(control_frame, text="CPU Libre", bg="limegreen", fg="white", font=("Arial", 10, "bold"), relief="solid", bd=2, width=12)
+label_semaforo_cpu.pack(side=tk.LEFT, padx=(10, 5), pady=5)
 
 btn_bloquear = tk.Button(control_frame, text="Bloquear CPU", command=bloquear_proceso_actual, bg="#ff9f4d", fg="white", font=("Arial", 10, "bold"), relief="raised", bd=2, width=10, state=tk.DISABLED)
 btn_bloquear.pack(side=tk.LEFT, padx=5, pady=5)
