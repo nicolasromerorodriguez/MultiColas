@@ -244,6 +244,7 @@ def ejecutar_simulacion():
                     cola_pq.sort(key=lambda proc: proc.priority)
                 
                 proceso_actual_en_cpu = None
+                actualizar_semaforo_cpu(False) # <--- NUEVO
                 actualizar_vista_cola_procesos()
                 actualizar_tabla_rr_queue()
                 actualizar_tabla_fcfs_queue()
@@ -263,6 +264,7 @@ def ejecutar_simulacion():
         if proceso_a_ejecutar:
             p = proceso_a_ejecutar
             proceso_actual_en_cpu = p
+            actualizar_semaforo_cpu(True) # <--- NUEVO
 
             t_espera = max(0.0, cpu_tiempo_actual - p.t_llegada)
 
@@ -337,6 +339,7 @@ def ejecutar_simulacion():
                         cola_pq.sort(key=lambda proc: proc.priority)
                     
                     proceso_actual_en_cpu = None
+                    actualizar_semaforo_cpu(False) # <--- NUEVO
                     actualizar_vista_cola_procesos()
                     break
 
@@ -401,6 +404,7 @@ def ejecutar_simulacion():
                 
                 bloqueo_solicitado = False
                 proceso_actual_en_cpu = None
+                actualizar_semaforo_cpu(False) # <--- NUEVO
                 continue
 
             fragmentos_ejecucion.append(fragment_info)
@@ -425,6 +429,7 @@ def ejecutar_simulacion():
                 update_console(f"[CPU] {p.id} ({p.queue_type}) TERMINÓ en t={t_final:.1f}", "terminado")
                 idx_color += 1
                 proceso_actual_en_cpu = None
+                actualizar_semaforo_cpu(False) # <--- NUEVO
             else:
                 update_console(f"[CPU] {p.id} ({p.queue_type}) fue PREEMPTADO y reencolado (restan {p.bt:.1f}u).", "sistema_advertencia")
                 p.t_llegada = cpu_tiempo_actual
@@ -437,9 +442,11 @@ def ejecutar_simulacion():
                     cola_pq.append(p)
                     cola_pq.sort(key=lambda proc: proc.priority)
                 proceso_actual_en_cpu = None
+                actualizar_semaforo_cpu(False) # <--- NUEVO
             
         # 4. CPU ociosa
         else:
+            actualizar_semaforo_cpu(False) # <--- NUEVO
             with procesos_por_llegar_lock:
                 next_event_time = float('inf')
                 if procesos_por_llegar:
@@ -482,6 +489,14 @@ def ejecutar_simulacion():
 
 
 # --- FUNCIONES DE INTERFAZ GRÁFICA (UI) ---
+
+def actualizar_semaforo_cpu(ocupado): # <--- NUEVO
+    """Actualiza el indicador visual del estado de la CPU."""
+    if ocupado:
+        label_semaforo_cpu.config(text="CPU Ocupado", bg="crimson", fg="white")
+    else:
+        label_semaforo_cpu.config(text="CPU Libre", bg="limegreen", fg="white")
+
 
 def update_console(msg, tag="normal"):
     """Inserta un mensaje en la consola de la UI."""
@@ -925,6 +940,8 @@ def reiniciar_simulacion():
     btn_desbloquear.config(state=tk.DISABLED)
     entry_quantum.config(state=tk.NORMAL)
     entry_aging_time.config(state=tk.NORMAL)
+    
+    actualizar_semaforo_cpu(False) # <--- NUEVO
 
     update_console("Simulador reiniciado. Agregue nuevos procesos para comenzar.", "sistema_advertencia")
 
@@ -939,7 +956,7 @@ def desactivar_controles_simulacion():
 # --- INTERFAZ GRÁFICA (UI) ---
 root = tk.Tk()
 root.title("Simulador de Planificación Multi-Cola con Envejecimiento")
-root.geometry("1200x950")
+root.geometry("1300x950") # <--- MODIFICADO (un poco más ancho)
 root.configure(bg="#f0f0f0")
 
 style = ttk.Style()
@@ -1014,6 +1031,10 @@ btn_agregar.grid(row=2, column=0, columnspan=6, padx=10, pady=5, sticky="ew")
 control_frame = tk.LabelFrame(top_frame, text="Controles de Simulación", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove")
 control_frame.pack(side=tk.RIGHT, padx=(5, 0), ipady=5)
 
+# --- INICIO DE MODIFICACIÓN: SEMÁFORO Y CONTROLES ---
+label_semaforo_cpu = tk.Label(control_frame, text="CPU Libre", bg="limegreen", fg="white", font=("Arial", 10, "bold"), relief="solid", bd=2, width=12) # <--- NUEVO
+label_semaforo_cpu.pack(side=tk.LEFT, padx=(10, 5), pady=5) # <--- NUEVO
+
 btn_bloquear = tk.Button(control_frame, text="Bloquear CPU", command=bloquear_proceso_actual, bg="#ff9f4d", fg="white", font=("Arial", 10, "bold"), relief="raised", bd=2, width=10, state=tk.DISABLED)
 btn_bloquear.pack(side=tk.LEFT, padx=5, pady=5)
 
@@ -1031,6 +1052,7 @@ btn_pausar_reanudar.pack(side=tk.LEFT, padx=5, pady=5)
 btn_reiniciar = tk.Button(control_frame, text="Reiniciar", command=reiniciar_simulacion, 
                           bg="#FF5733", fg="white", font=("Arial", 10, "bold"), relief="raised", bd=2, width=8)
 btn_reiniciar.pack(side=tk.LEFT, padx=5, pady=5)
+# --- FIN DE MODIFICACIÓN ---
 
 # --- SECCIÓN MEDIA: Cola y Gantt ---
 middle_frame = tk.Frame(scrollable_frame, bg="#f0f0f0")
