@@ -708,7 +708,12 @@ def agregar_proceso():
 
     assigned_priority = None
     if assigned_queue_type == "PQ":
-        assigned_priority = random.randint(1, 10)
+        #assigned_priority = random.randint(1, 10)
+        try:
+            assigned_priority = int(entry_priority_pq.get())
+        except ValueError:
+            messagebox.showerror("Error de Entrada", "Debe ingresar una prioridad válida para PQ.")
+            return
 
     nuevo_proceso = Proceso(id_proceso=pid, tiempo_llegada=t_llegada, tiempo_rafaga=bt,
                             priority=assigned_priority, queue_type=assigned_queue_type)
@@ -969,7 +974,7 @@ top_frame = tk.Frame(scrollable_frame, bg="#f0f0f0")
 top_frame.pack(fill=tk.X, pady=(0, 10))
 
 input_frame = tk.LabelFrame(top_frame, text="Añadir Proceso", bg="white", font=("Arial", 11, "bold"), bd=2, relief="groove")
-input_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5), ipady=5)
+input_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 7), ipady=7)
 
 tk.Label(input_frame, text="ID:", bg="white").grid(row=0, column=0, padx=5, pady=5, sticky="w")
 entry_pid = tk.Entry(input_frame, width=10, relief="solid", bd=1)
@@ -998,6 +1003,10 @@ tk.Label(input_frame, text="Envejecimiento (X):", bg="white").grid(row=1, column
 entry_aging_time = tk.Entry(input_frame, width=10, relief="solid", bd=1)
 entry_aging_time.insert(0, "10.0")
 entry_aging_time.grid(row=1, column=5, padx=5, pady=5)
+
+tk.Label(input_frame, text="Prioridad PQ:", bg="white").grid(row=1, column=6, padx=5, pady=5, sticky="w")
+entry_priority_pq = tk.Entry(input_frame, width=10, relief="solid", bd=1)
+entry_priority_pq.grid(row=1, column=7, padx=5, pady=5)
 
 btn_agregar = tk.Button(input_frame, text="Añadir Proceso", command=agregar_proceso, bg="#6cbafa", fg="white", font=("Arial", 10, "bold"), relief="raised", bd=2)
 btn_agregar.grid(row=2, column=0, columnspan=6, padx=10, pady=5, sticky="ew")
